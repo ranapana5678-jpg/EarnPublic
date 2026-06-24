@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earn Money - Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <script src='//libtl.com/sdk.js' data-zone='11180932' data-sdk='show_11180932'></script>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <style>
+        :root { --primary-color: #5158f3; --bg-color: #f4f7f6; --card-bg: #ffffff; --text-dark: #22252a; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: var(--bg-color); margin: 0; padding: 0; color: var(--text-dark); }
+        .container { max-width: 450px; margin: 0 auto; background: var(--card-bg); min-height: 100vh; padding-bottom: 80px; }
+        .header { background: linear-gradient(135deg, #5158f3, #7b51f3); color: white; padding: 30px 20px; border-bottom-left-radius: 30px; border-bottom-right-radius: 30px; text-align: center; }
+        .balance-card { background: rgba(255, 255, 255, 0.9); color: var(--text-dark); border-radius: 20px; padding: 20px; margin-top: 15px; }
+        .balance-amount { font-size: 32px; font-weight: bold; color: #5158f3; }
+        .tab-content { display: none; padding: 0 15px; }
+        .tab-content.active { display: block; }
+        
+        .section-title { margin-top: 25px; margin-bottom: 10px; font-size: 16px; font-weight: bold; color: #444; display: flex; align-items: center; gap: 5px; }
+        .ad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .ad-card { background: #fff; border: 2px solid #eef2f5; border-radius: 16px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .ad-card:active { transform: scale(0.97); }
+        .reward-tag { background: rgba(40, 167, 69, 0.1); color: #28a745; padding: 4px 10px; border-radius: 20px; font-size: 13px; font-weight: bold; display: inline-block; margin-top: 5px; }
+        
+        .task-card { background: #fff; border: 2px solid #eef2f5; border-radius: 16px; padding: 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .task-info { display: flex; flex-direction: column; gap: 4px; }
+        .task-name { font-weight: bold; font-size: 14px; }
+        
+        .task-btn { background: #22252a; color: #fff; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .task-btn.done { background: #28a745; cursor: default; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; }
+        
+        .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 450px; background: #22252a; display: flex; justify-content: space-around; padding: 12px 0; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -4px 10px rgba(0,0,0,0.1); }
+        .nav-item { color: #8e94a0; text-align: center; cursor: pointer; font-size: 18px; flex: 1; }
+        .nav-item.active { color: #ffffff; }
+        .nav-item span { display: block; font-size: 11px; margin-top: 2px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h3 style="margin:0;">Welcome, <span id="user-name">Loading...</span></h3>
+        <p style="margin:5px 0; font-size:12px;">ID: <span id="user-id">------</span></p>
+        <div class="balance-card">
+            <div style="font-size: 13px; color: #666;">TOTAL BALANCE</div>
+            <div class="balance-amount"><span id="user-balance">0.00</span> টাকা</div>
+            <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:14px;">
+                <div>Total Referrals: <span id="total-ref">0</span>/10</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="home-tab" class="tab-content active">
+        
+        <div class="section-title">📢 Official Telegram Tasks</div>
+        <div class="task-card">
+            <div class="task-info">
+                <span class="task-name">টেলিগ্রাম চ্যানেলে জয়েন করুন</span>
+                <span class="reward-tag" style="margin-top: 0;">+১০ টাকা</span>
+            </div>
+            <button class="task-btn" id="tg-task-btn" onclick="completeTelegramTask()">Join Channel</button>
+        </div>
+
+        <div class="section-title">▶ Daily Ads (১০টি বিজ্ঞাপন)</div>
+        <div class="ad-grid">
+            <div class="ad-card" onclick="watchAd(5)">
+                <h5 style="margin:0; font-size:14px;">Ad Slot 1</h5>
+                <div class="reward-tag">+৫ টাকা</div>
+            </div>
+            <div class="ad-card" onclick="watchAd(5)">
+                <h5 style="margin:0; font-size:14px;">Ad Slot 2</h5>
+                <div class="reward-tag">+৫ টাকা</div>
+            </div>
+        </div>
+        
+    </div>
+
+    <div id="refer-tab" class="tab-content">
+        <h4>👥 বন্ধুদের ইনভাইট করুন</h4>
+        <div style="background: #fff; padding: 15px; border-radius:15px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+            <p>প্রতি সফল রেফারে পাবেন <b>৭০ টাকা</b>। (অবশ্যই বট স্টার্ট করতে হবে)</p>
+            <input type="text" class="form-control" id="ref-url" readonly>
+            <button class="task-btn" style="margin-top:10px; background:#5158f3; width:100%;" onclick="copyLink()">লিংক কপি করুন</button>
+        </div>
+    </div>
+
+    <div id="withdraw-tab" class="tab-content">
+        <h4>💳 ক্যাশ আউট ফর্ম</h4>
+        <div style="background: #fff; padding: 20px; border-radius:15px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+            <p style="color:red; font-size:13px; font-weight:bold;">⚠️ শর্ত: উইথড্র করতে হলে সর্বনিম্ন ১০ জন রেফার এবং ২০০০ টাকা থাকতে হবে।</p>
+            <select class="form-control" id="method" style="margin-bottom:10px;">
+                <option value="bKash">bKash</option>
+                <option value="Nagad">Nagad</option>
+                <option value="Rocket">Rocket</option>
+            </select>
+            <input type="number" class="form-control" id="acc-num" placeholder="অ্যাকাউন্ট নম্বর" style="margin-bottom:10px;">
+            <input type="number" class="form-control" id="withdraw-amount" placeholder="অ্যামাউন্ট (মিন. ২০00)">
+            <button class="task-btn" style="margin-top:15px; width: 100%;" onclick="submitWithdraw()">ক্যাশ আউট রিকোয়েস্ট</button>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('home-tab', this)">🏠<span>Home</span></div>
+        <div class="nav-item" onclick="switchTab('refer-tab', this)">👥<span>Refer</span></div>
+        <div class="nav-item" onclick="switchTab('withdraw-tab', this)">👤<span>Withdraw</span></div>
+    </div>
+</div>
+
+<script>
+    // ✅ আপনার লাইভ Firebase কনফিগারেশন
+    const firebaseConfig = {
+        apiKey: "AIzaSyCmWQRJv6cABsow0sgmq9r0HLN2X_5erH0",
+        databaseURL: "https://earnbot2026-default-rtdb.firebaseio.com",
+        projectId: "earnbot2026",
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    let userId = tg.initDataUnsafe?.user?.id || "6219604130"; 
+    let userName = tg.initDataUnsafe?.user?.first_name || "User";
+    let referredBy = tg.initDataUnsafe?.start_param || null;
+
+    document.getElementById('user-id').innerText = userId;
+    document.getElementById('user-name').innerText = userName;
+    document.getElementById('ref-url').value = `https://t.me/EAENING_START_2026_BOT?start=${userId}`;
+
+    let userRef = database.ref('users/' + userId);
+
+    userRef.on('value', (snapshot) => {
+        if (!snapshot.exists()) {
+            userRef.set({
+                id: userId,
+                name: userName,
+                balance: 0,
+                referrals: 0,
+                telegramTask: "Pending",
+                referredBy: referredBy
+            });
+            
+            if(referredBy && referredBy !== userId.toString()) {
+                database.ref('users/' + referredBy).once('value', (refSnapshot) => {
+                    if(refSnapshot.exists()){
+                        let oldBalance = refSnapshot.val().balance || 0;
+                        let oldRefs = refSnapshot.val().referrals || 0;
+                        database.ref('users/' + referredBy).update({
+                            balance: oldBalance + 70,
+                            referrals: oldRefs + 1
+                        });
+                    }
+                });
+            }
+        } else {
+            let data = snapshot.val();
+            document.getElementById('user-balance').innerText = parseFloat(data.balance).toFixed(2);
+            document.getElementById('total-ref').innerText = data.referrals || 0;
+            
+            if(data.telegramTask === "Completed") {
+                let btn = document.getElementById('tg-task-btn');
+                btn.innerText = "Completed ✅";
+                btn.className = "task-btn done";
+                btn.onclick = null;
+            }
+        }
+    });
+
+    // 📢 টেলিগ্রাম টাস্ক কমপ্লিট করার ফাংশন (আপনার আসল লিংক যুক্ত করা হয়েছে)
+    function completeTelegramTask() {
+        window.open("https://t.me/+2T9AxQsZl4szMTll", "_blank");
+        
+        setTimeout(() => {
+            userRef.once('value').then((snapshot) => {
+                let data = snapshot.val();
+                if(data.telegramTask !== "Completed") {
+                    let currentBalance = data.balance || 0;
+                    userRef.update({
+                        balance: currentBalance + 10,
+                        telegramTask: "Completed"
+                    });
+                    alert("✅ চ্যানেলে জয়েন করার জন্য ১০ টাকা বোনাস যোগ হয়েছে!");
+                }
+            });
+        }, 2000);
+    }
+
+    // ▶ Monetag বিজ্ঞাপন ট্রিগার করার রিয়েল ফাংশন
+    function watchAd(amount) {
+        // Monetag SDK লোড হয়েছে কি না চেক করা হচ্ছে
+        if (typeof show_11180932 === 'function') {
+            show_11180932().then(() => {
+                // বিজ্ঞাপনটি সফলভাবে দেখা শেষ হলে ডাটাবেজে টাকা যোগ হবে
+                userRef.once('value').then((snapshot) => {
+                    let current = snapshot.val().balance || 0;
+                    userRef.update({ balance: current + amount });
+                    alert("✅ বিজ্ঞাপন দেখা সফল হয়েছে! ৫ টাকা ব্যালেন্সে যোগ হয়েছে।");
+                });
+            }).catch((error) => {
+                alert("❌ বিজ্ঞাপন লোড হতে সমস্যা হয়েছে বা এডব্লকার অন আছে। আবার চেষ্টা করুন।");
+                console.error("Monetag Error: ", error);
+            });
+        } else {
+            // পিসিতে টেস্ট করার জন্য ডেমো ফলব্যাক রাখা হয়েছে
+            userRef.once('value').then((snapshot) => {
+                let current = snapshot.val().balance || 0;
+                userRef.update({ balance: current + amount });
+                alert("📢 (টেস্ট মোড): বিজ্ঞাপন দেখা সফল! ৫ টাকা যোগ হয়েছে।");
+            });
+        }
+    }
+
+    function submitWithdraw() {
+        const method = document.getElementById('method').value;
+        const number = document.getElementById('acc-num').value;
+        const amount = parseFloat(document.getElementById('withdraw-amount').value);
+
+        if (!number || !amount) {
+            alert("❌ অনুগ্রহ করে সঠিক নম্বর এবং অ্যামাউন্ট দিন।");
+            return;
+        }
+
+        userRef.once('value').then((snapshot) => {
+            let userData = snapshot.val();
+            let myBalance = userData.balance || 0;
+            let myRefs = userData.referrals || 0;
+
+            if (myRefs < 10) {
+                alert("❌ দুঃখিত! ক্যাশ আউট করতে হলে আপনাকে অবশ্যই কমপক্ষে ১০ জনকে রেফার করতে হবে।");
+                return;
+            }
+            if (amount < 2000 || myBalance < amount) {
+                alert("❌ পর্যাপ্ত ব্যালেন্স নেই অথবা সর্বনিম্ন উইথড্র ২,০০০ টাকা হয়নি।");
+                return;
+            }
+
+            let withdrawRef = database.ref('withdraws').push();
+            withdrawRef.set({
+                userId: userId,
+                name: userName,
+                method: method,
+                number: number,
+                amount: amount,
+                status: "Pending"
+            }).then(() => {
+                userRef.update({ balance: myBalance - amount });
+                alert("✅ আপনার ক্যাশ আউট রিকোয়েস্ট এডমিনের কাছে পাঠানো হয়েছে।");
+            });
+        });
+    }
+
+    function switchTab(tabId, el) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        el.classList.add('active');
+    }
+
+    function copyLink() {
+        const copyText = document.getElementById("ref-url");
+        copyText.select();
+        navigator.clipboard.writeText(copyText.value);
+        alert("লিংকটি কপি হয়েছে! বন্ধুদের শেয়ার করুন।");
+    }
+</script>
+</body>
+</html>
